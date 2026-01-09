@@ -6,7 +6,7 @@ from google import genai
 from db import get_connection
 
 # ---------------- GEMINI CLIENT ----------------
-client = genai.Client(api_key="AIzaSyC6dQyW5suajkRi3ZJEeraavUdvys30U98")
+client = genai.Client(api_key=api_key=st.secrets["GEMINI_API_KEY"])
 
 # ---------------- DB QUERIES ----------------
 def get_properties_with_guide():
@@ -130,3 +130,4 @@ def show_property_chatbot():
         st.session_state.chat.append(
             {"role": "assistant", "content": reply}
         )
+
