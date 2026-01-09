@@ -6,16 +6,7 @@ import uuid
 # ================== DB CONNECTION ==================
 def get_connection():
     return pymysql.connect(
-        host="whereisit-karthiksomasundaram598-2d46.l.aivencloud.com",
-        user="avnadmin",
-        password="AVNS_X8yJEAfpgmX7ZH-NkDy",  # 🔴 add password
-        database="property_management",
-        port=17028,
-        charset="utf8mb4",
-        cursorclass=pymysql.cursors.DictCursor,
-        connect_timeout=10,
-        read_timeout=10,
-        write_timeout=10,
+       
     )
 
 # ================== AUTH ==================
@@ -103,3 +94,4 @@ else:
     if st.button("Logout"):
         st.session_state.clear()
         st.rerun()
+
