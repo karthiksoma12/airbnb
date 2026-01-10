@@ -8,12 +8,6 @@ def reset_password(username, new_password):
     ).decode()
 
     conn = pymysql.connect(
-        host="whereisit-karthiksomasundaram598-2d46.l.aivencloud.com",
-        user="avnadmin",
-        password="AVNS_X8yJEAfpgmX7ZH-NkDy",  # add password
-        database="property_management",
-        port=17028,
-        cursorclass=pymysql.cursors.DictCursor
     )
 
     with conn.cursor() as cursor:
@@ -33,3 +27,4 @@ def reset_password(username, new_password):
 if __name__ == "__main__":
     # Example usage
     reset_password("karthik", "Nothingnew@12")
+
