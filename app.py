@@ -48,5 +48,6 @@ else:
         show_property_page()
     
     elif st.session_state.page == "guidebook":
-        from guidebook_registration import show_guidebook_page
+        from pages.guidebook_registration import show_guidebook_page
         show_guidebook_page()
+
