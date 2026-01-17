@@ -8,6 +8,19 @@ if "logged_in" not in st.session_state:
 if "page" not in st.session_state:
     st.session_state.page = "login"
 
+# ---------------- CHECK FOR PUBLIC CHATBOT ACCESS ----------------
+# Allow direct access to chatbot via URL without login
+params = st.query_params
+
+if ("guidebook" in params or "id" in params):
+    # User is accessing chatbot via direct URL - bypass login
+    st.session_state.page = "chatbot"
+    # Skip login entirely for chatbot access
+    if st.session_state.page == "chatbot":
+        from pages.chatbot import main
+        main()
+        st.stop()  # Stop execution here, don't show login
+
 # ---------------- LOGIN PAGE ----------------
 if not st.session_state.logged_in:
     st.title("🔐 Login")
@@ -24,7 +37,7 @@ if not st.session_state.logged_in:
         else:
             st.error("Invalid credentials")
 
-# ---------------- ROUTER ----------------
+# ---------------- ROUTER (Admin Pages Only) ----------------
 else:
     if st.session_state.page == "dashboard":
         from pages.dashboard import show_dashboard
@@ -33,12 +46,7 @@ else:
     elif st.session_state.page == "property":
         from pages.property_registration import show_property_page
         show_property_page()
+    
     elif st.session_state.page == "guidebook":
-        from pages.guidebook_registration import show_guidebook_page
+        from guidebook_registration import show_guidebook_page
         show_guidebook_page()
-    elif st.session_state.page == "mapper":
-        from pages.mapper import show_mapper_page
-        show_mapper_page()
-    elif st.session_state.page == "chatbot":
-        from pages.chatbot import show_property_chatbot
-        show_property_chatbot()
