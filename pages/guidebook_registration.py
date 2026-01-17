@@ -13,6 +13,25 @@ def generate_qr_base64(url: str) -> str:
     qr.save(buffer, format="PNG")
     return base64.b64encode(buffer.getvalue()).decode()
 
+# ---------------- GENERATE CHATBOT URL ----------------
+def generate_chatbot_url(guidebook_title: str) -> str:
+    """Generate a clean URL for the guidebook chatbot"""
+    # Create URL-friendly slug from title
+    slug = guidebook_title.lower().replace(" ", "_").replace("-", "_")
+    # Remove special characters
+    slug = ''.join(c for c in slug if c.isalnum() or c == '_')
+    
+    # Get base URL (works in local and deployed environments)
+    try:
+        base_url = st.context.headers.get("Host", "localhost:8501")
+        protocol = "https://" if "localhost" not in base_url else "http://"
+    except:
+        # Fallback for local development
+        base_url = "localhost:8501"
+        protocol = "http://"
+    
+    return f"{protocol}{base_url}?guidebook={slug}"
+
 # ---------------- DB OPS ----------------
 def get_guidebooks():
     conn = get_connection()
@@ -25,30 +44,42 @@ def get_guidebooks():
     return rows
 
 
-def insert_guidebook(title, text, url, user):
-    qr_base64 = generate_qr_base64(url)
+def insert_guidebook(title, text, original_url, user):
+    # Generate chatbot URL based on title
+    chatbot_url = generate_chatbot_url(title)
+    
+    # Generate QR code for the chatbot URL
+    qr_base64 = generate_qr_base64(chatbot_url)
 
     conn = get_connection()
     with conn.cursor() as cursor:
         sql = """
         INSERT INTO guidebook_registration
-        (guideid, guidebook_title, guide_text, guide_url, qr_code_base64, created_by,created_date)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        (guideid, guidebook_title, guide_text, guide_original_url, guide_chatbot_url, qr_code_base64, created_by, created_date)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(sql, (
             str(uuid.uuid4()),
             title,
             text,
-            url,
+            original_url,
+            chatbot_url,
             qr_base64,
-            user, datetime.now()
+            user,
+            datetime.now()
         ))
     conn.commit()
     conn.close()
+    
+    return chatbot_url, qr_base64  # Return generated URL and QR
 
 
-def update_guidebook(guideid, title, text, url, user):
-    qr_base64 = generate_qr_base64(url)
+def update_guidebook(guideid, title, text, original_url, user):
+    # Regenerate chatbot URL based on new title
+    chatbot_url = generate_chatbot_url(title)
+    
+    # Regenerate QR code for the new chatbot URL
+    qr_base64 = generate_qr_base64(chatbot_url)
 
     conn = get_connection()
     with conn.cursor() as cursor:
@@ -56,7 +87,8 @@ def update_guidebook(guideid, title, text, url, user):
         UPDATE guidebook_registration
         SET guidebook_title=%s,
             guide_text=%s,
-            guide_url=%s,
+            guide_original_url=%s,
+            guide_chatbot_url=%s,
             qr_code_base64=%s,
             modified_date=%s,
             modified_by=%s
@@ -65,7 +97,8 @@ def update_guidebook(guideid, title, text, url, user):
         cursor.execute(sql, (
             title,
             text,
-            url,
+            original_url,
+            chatbot_url,
             qr_base64,
             datetime.now(),
             user,
@@ -85,19 +118,38 @@ def show_guidebook_page():
     st.divider()
 
     # ➕ NEW GUIDEBOOK
-    with st.expander("➕ Create New Guidebook"):
+    with st.expander("➕ Create New Guidebook", expanded=True):
         title = st.text_input("Guidebook Title")
-        url = st.text_input("Guide URL")
+        original_url = st.text_input("Original Guide URL", placeholder="https://example.com/guide")
         text = st.text_area("Guide Content", height=150)
 
-        if st.button("Save Guidebook"):
-            if not (title and text and url):
+        if st.button("Save Guidebook", type="primary"):
+            if not (title and text and original_url):
                 st.error("All fields are required")
-                return
-
-            insert_guidebook(title, text, url, st.session_state.username)
-            st.success("Guidebook created ✅")
-            st.rerun()
+            else:
+                chatbot_url, qr_base64 = insert_guidebook(title, text, original_url, st.session_state.username)
+                
+                # Show success with generated URL and QR
+                st.success("✅ Guidebook created successfully!")
+                
+                st.subheader("🎉 Your Chatbot is Ready!")
+                
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.info("🔗 **Chatbot URL:**")
+                    st.code(chatbot_url, language=None)
+                    st.caption("Share this link to access the chatbot")
+                
+                with col2:
+                    st.info("📱 **QR Code:**")
+                    qr_bytes = base64.b64decode(qr_base64)
+                    st.image(qr_bytes, width=200, caption="Scan to access")
+                
+                st.divider()
+                
+                if st.button("Create Another Guidebook"):
+                    st.rerun()
 
     st.divider()
 
@@ -111,17 +163,17 @@ def show_guidebook_page():
         return
 
     for g in guidebooks:
-        with st.expander(g["guidebook_title"]):
+        with st.expander(f"📖 {g['guidebook_title']}"):
             new_title = st.text_input(
                 "Guidebook Title",
                 g["guidebook_title"],
                 key=f"title_{g['guideid']}"
             )
 
-            new_url = st.text_input(
-                "Guide URL",
-                g["guide_url"],
-                key=f"url_{g['guideid']}"
+            new_original_url = st.text_input(
+                "Original Guide URL",
+                g["guide_original_url"],
+                key=f"original_url_{g['guideid']}"
             )
 
             new_text = st.text_area(
@@ -131,21 +183,34 @@ def show_guidebook_page():
                 key=f"text_{g['guideid']}"
             )
 
-            # QR DISPLAY
+            # DISPLAY BOTH URLs
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.info("📄 **Original Guide URL:**")
+                st.code(g['guide_original_url'], language=None)
+            
+            with col2:
+                st.success("🤖 **Chatbot URL:**")
+                st.code(g['guide_chatbot_url'], language=None)
+
+            # QR CODE (points to chatbot URL)
+            st.markdown("**📱 QR Code for Chatbot:**")
             qr_bytes = base64.b64decode(g["qr_code_base64"])
-            st.image(qr_bytes, width=150, caption="QR Code")
+            st.image(qr_bytes, width=200, caption="Scan to open chatbot")
 
             st.caption(f"🆔 {g['guideid']}")
-            st.text(f"Created: {g['created_date']} by {g['created_by']}")
-            st.text(f"Modified: {g['modified_date']} by {g['modified_by']}")
+            st.caption(f"Created: {g['created_date']} by {g['created_by']}")
+            if g.get('modified_date'):
+                st.caption(f"Modified: {g['modified_date']} by {g.get('modified_by', 'N/A')}")
 
             if st.button("Update Guidebook", key=f"upd_{g['guideid']}"):
                 update_guidebook(
                     g["guideid"],
                     new_title,
                     new_text,
-                    new_url,
+                    new_original_url,
                     st.session_state.username
                 )
-                st.success("Updated ✏️")
+                st.success("✏️ Updated successfully!")
                 st.rerun()
