@@ -4,7 +4,7 @@ def show_dashboard():
     st.title("📊 Dashboard")
     st.success(f"Welcome, {st.session_state.username}")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
 
     with col1:
         if st.button("🏠 Property Registration"):
@@ -14,16 +14,6 @@ def show_dashboard():
     with col2:
         if st.button("📚 Guidebook Registration"):
             st.session_state.page = "guidebook"
-            st.rerun()
-        
-    with col3:
-        if st.button("🔗 Property-Guidebook Mapping"):
-            st.session_state.page = "mapper"
-            st.rerun()
-    
-    with st.expander("💬 Chat with Guidebook"):
-        if st.button("Go to Chatbot"):
-            st.session_state.page = "chatbot"
             st.rerun()
 
     st.divider()
