@@ -48,9 +48,10 @@ else:
         show_property_page()
     
     elif st.session_state.page == "guidebook":
-        from guidebook_registration import show_guidebook_page
+        from pages.guidebook_registration import show_guidebook_page
         show_guidebook_page()
     
     elif st.session_state.page == "chat_sessions":
         from pages.page_sessions import show_chat_sessions_page
         show_chat_sessions_page()
+
