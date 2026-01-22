@@ -16,17 +16,13 @@ def generate_qr_base64(url: str) -> str:
 # ---------------- GENERATE CHATBOT URL ----------------
 def generate_chatbot_url(guidebook_title: str) -> str:
     """Generate a clean URL for the guidebook chatbot"""
-    # Create URL-friendly slug from title
     slug = guidebook_title.lower().replace(" ", "_").replace("-", "_")
-    # Remove special characters
     slug = ''.join(c for c in slug if c.isalnum() or c == '_')
     
-    # Get base URL (works in local and deployed environments)
     try:
         base_url = st.context.headers.get("Host", "localhost:8501")
         protocol = "https://" if "localhost" not in base_url else "http://"
     except:
-        # Fallback for local development
         base_url = "localhost:8501"
         protocol = "http://"
     
@@ -44,7 +40,7 @@ def get_guidebooks():
     return rows
 
 
-def insert_guidebook(title, text, original_url, user):
+def insert_guidebook(title, text, original_url, description, user):
     # Generate chatbot URL based on title
     chatbot_url = generate_chatbot_url(title)
     
@@ -55,8 +51,9 @@ def insert_guidebook(title, text, original_url, user):
     with conn.cursor() as cursor:
         sql = """
         INSERT INTO guidebook_registration
-        (guideid, guidebook_title, guide_text, guide_original_url, guide_chatbot_url, qr_code_base64, created_by, created_date)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        (guideid, guidebook_title, guide_text, guide_original_url, guide_chatbot_url, 
+         chatbot_description, qr_code_base64, created_by, created_date)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(sql, (
             str(uuid.uuid4()),
@@ -64,6 +61,7 @@ def insert_guidebook(title, text, original_url, user):
             text,
             original_url,
             chatbot_url,
+            description,
             qr_base64,
             user,
             datetime.now()
@@ -71,10 +69,10 @@ def insert_guidebook(title, text, original_url, user):
     conn.commit()
     conn.close()
     
-    return chatbot_url, qr_base64  # Return generated URL and QR
+    return chatbot_url, qr_base64
 
 
-def update_guidebook(guideid, title, text, original_url, user):
+def update_guidebook(guideid, title, text, original_url, description, user):
     # Regenerate chatbot URL based on new title
     chatbot_url = generate_chatbot_url(title)
     
@@ -89,6 +87,7 @@ def update_guidebook(guideid, title, text, original_url, user):
             guide_text=%s,
             guide_original_url=%s,
             guide_chatbot_url=%s,
+            chatbot_description=%s,
             qr_code_base64=%s,
             modified_date=%s,
             modified_by=%s
@@ -99,6 +98,7 @@ def update_guidebook(guideid, title, text, original_url, user):
             text,
             original_url,
             chatbot_url,
+            description,
             qr_base64,
             datetime.now(),
             user,
@@ -120,14 +120,26 @@ def show_guidebook_page():
     # ➕ NEW GUIDEBOOK
     with st.expander("➕ Create New Guidebook", expanded=True):
         title = st.text_input("Guidebook Title")
+        
+        description = st.text_input(
+            "Chatbot Description", 
+            placeholder="Ask me anything about this guidebook!",
+            help="This message will appear at the top of the chatbot"
+        )
+        
         original_url = st.text_input("Original Guide URL", placeholder="https://example.com/guide")
         text = st.text_area("Guide Content", height=150)
 
         if st.button("Save Guidebook", type="primary"):
             if not (title and text and original_url):
-                st.error("All fields are required")
+                st.error("Title, Guide Content, and Original URL are required")
             else:
-                chatbot_url, qr_base64 = insert_guidebook(title, text, original_url, st.session_state.username)
+                # Use default description if not provided
+                final_description = description if description else "Ask me anything about this guidebook!"
+                
+                chatbot_url, qr_base64 = insert_guidebook(
+                    title, text, original_url, final_description, st.session_state.username
+                )
                 
                 # Show success with generated URL and QR
                 st.success("✅ Guidebook created successfully!")
@@ -170,6 +182,13 @@ def show_guidebook_page():
                 key=f"title_{g['guideid']}"
             )
 
+            new_description = st.text_input(
+                "Chatbot Description",
+                g.get("chatbot_description", "Ask me anything about this guidebook!"),
+                key=f"desc_{g['guideid']}",
+                help="This message appears at the top of the chatbot"
+            )
+
             new_original_url = st.text_input(
                 "Original Guide URL",
                 g["guide_original_url"],
@@ -210,6 +229,7 @@ def show_guidebook_page():
                     new_title,
                     new_text,
                     new_original_url,
+                    new_description,
                     st.session_state.username
                 )
                 st.success("✏️ Updated successfully!")
