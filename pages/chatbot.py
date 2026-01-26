@@ -6,6 +6,7 @@ from openai import OpenAI
 from db import get_connection
 import uuid
 from datetime import datetime
+import re
 
 # ---------------- OPENAI CLIENT ----------------
 client = client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY", ""))
@@ -59,6 +60,23 @@ def end_chat_session(session_id: str):
     conn.commit()
     conn.close()
 
+def get_session_contact_info(session_id: str):
+    """Get contact information already provided in this session"""
+    conn = get_connection()
+    with conn.cursor() as cursor:
+        sql = """
+        SELECT user_phone, user_email 
+        FROM unanswered_questions 
+        WHERE session_id = %s 
+        AND contact_provided = TRUE
+        ORDER BY created_at DESC
+        LIMIT 1
+        """
+        cursor.execute(sql, (session_id,))
+        row = cursor.fetchone()
+    conn.close()
+    return row
+
 # ---------------- MESSAGE LOGGING ----------------
 def save_chat_message(session_id: str, guideid: str, role: str, content: str, 
                      input_tokens: int, output_tokens: int, was_answered: bool = True):
@@ -74,16 +92,33 @@ def save_chat_message(session_id: str, guideid: str, role: str, content: str,
     conn.commit()
     conn.close()
 
-def log_unanswered_question(session_id: str, guideid: str, question: str, response: str, reason: str):
-    """Log questions that couldn't be answered"""
+def log_unanswered_question(session_id: str, guideid: str, question: str, response: str, reason: str,
+                           phone: str = None, email: str = None):
+    """Log questions that couldn't be answered with optional contact info"""
     conn = get_connection()
     with conn.cursor() as cursor:
         sql = """
         INSERT INTO unanswered_questions 
-        (session_id, guideid, user_question, ai_response, reason)
-        VALUES (%s, %s, %s, %s, %s)
+        (session_id, guideid, user_question, ai_response, reason, user_phone, user_email, contact_provided)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
-        cursor.execute(sql, (session_id, guideid, question, response, reason))
+        contact_provided = bool(phone or email)
+        cursor.execute(sql, (session_id, guideid, question, response, reason, phone, email, contact_provided))
+    conn.commit()
+    conn.close()
+
+def update_unanswered_question_contact(session_id: str, question: str, phone: str = None, email: str = None):
+    """Update contact information for an unanswered question"""
+    conn = get_connection()
+    with conn.cursor() as cursor:
+        sql = """
+        UPDATE unanswered_questions 
+        SET user_phone = %s, user_email = %s, contact_provided = TRUE
+        WHERE session_id = %s AND user_question = %s
+        ORDER BY created_at DESC
+        LIMIT 1
+        """
+        cursor.execute(sql, (phone, email, session_id, question))
     conn.commit()
     conn.close()
 
@@ -123,6 +158,19 @@ def show_qr(qr_base64):
     except Exception as e:
         st.error(f"Error loading QR code: {e}")
 
+# ---------------- CONTACT VALIDATION ----------------
+def validate_email(email: str) -> bool:
+    """Validate email format"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def validate_phone(phone: str) -> bool:
+    """Validate phone number (basic validation)"""
+    # Remove spaces, dashes, parentheses
+    cleaned = re.sub(r'[\s\-\(\)]', '', phone)
+    # Check if it's 10-15 digits
+    return cleaned.isdigit() and 10 <= len(cleaned) <= 15
+
 # ---------------- ANSWER DETECTION ----------------
 def check_if_answered(response: str) -> tuple[bool, str]:
     """Detect if the AI was able to answer the question"""
@@ -138,7 +186,8 @@ def check_if_answered(response: str) -> tuple[bool, str]:
         "not included",
         "i don't know",
         "i'm not sure",
-        "unable to answer"
+        "unable to answer",
+        "pass this question to the property manager"
     ]
     
     response_lower = response.lower()
@@ -169,11 +218,11 @@ Original Guide URL (for reference):
 
 Guidelines:
 - Answer questions directly and accurately based on the guidebook content above
-- If the answer is NOT in the guidebook, you MUST clearly state: "I don't have information about that in the guidebook."
+- If the answer is NOT in the guidebook, you MUST respond EXACTLY with: "I am going to pass this question to the property manager or owner. Do you mind sharing your phone number or email so one of them can call or text you back with an answer?"
 - Be concise but thorough
 - Use a friendly, professional tone
 - Do NOT make up information not in the guidebook
-- If asked about topics outside the guidebook, clearly say it's not covered"""
+- If asked about topics outside the guidebook, use the response above to ask for contact information"""
         }
     ]
     
@@ -226,6 +275,19 @@ def main():
             color: white;
             margin-bottom: 1rem;
         }
+        .contact-form {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+        }
+        .contact-saved {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 1rem;
+            border-radius: 0.3rem;
+            margin: 1rem 0;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -264,6 +326,23 @@ def main():
     
     if "total_output_tokens" not in st.session_state:
         st.session_state.total_output_tokens = 0
+    
+    if "awaiting_contact" not in st.session_state:
+        st.session_state.awaiting_contact = False
+    
+    if "pending_question" not in st.session_state:
+        st.session_state.pending_question = None
+    
+    # Check if contact info already exists for this session
+    if "session_contact_checked" not in st.session_state:
+        existing_contact = get_session_contact_info(st.session_state.session_id)
+        if existing_contact:
+            st.session_state.saved_phone = existing_contact.get('user_phone')
+            st.session_state.saved_email = existing_contact.get('user_email')
+        else:
+            st.session_state.saved_phone = None
+            st.session_state.saved_email = None
+        st.session_state.session_contact_checked = True
 
     # Display guidebook header
     chatbot_description = guidebook.get('chatbot_description', 'Ask me anything about this guidebook!')
@@ -275,7 +354,7 @@ def main():
         </div>
     """, unsafe_allow_html=True)
 
-    # Minimal Sidebar - No file list
+    # Minimal Sidebar
     with st.sidebar:
         st.header("ℹ️ About")
         
@@ -290,98 +369,233 @@ def main():
         
         st.divider()
         
+        # Show saved contact info in sidebar
+        if st.session_state.saved_phone or st.session_state.saved_email:
+            st.subheader("📞 Your Contact Info")
+            if st.session_state.saved_phone:
+                st.caption(f"📱 {st.session_state.saved_phone}")
+            if st.session_state.saved_email:
+                st.caption(f"📧 {st.session_state.saved_email}")
+            st.divider()
+        
         # Clear chat button
         if st.button("🗑️ New Chat", use_container_width=True):
             end_chat_session(st.session_state.session_id)
             st.session_state.messages = []
             st.session_state.total_input_tokens = 0
             st.session_state.total_output_tokens = 0
+            st.session_state.awaiting_contact = False
+            st.session_state.pending_question = None
+            st.session_state.saved_phone = None
+            st.session_state.saved_email = None
+            st.session_state.session_contact_checked = False
             st.session_state.session_id = create_chat_session(
                 guidebook['guideid'],
                 st.session_state.get('username', 'anonymous')
             )
             st.rerun()
 
-    # Display chat messages (no token display)
+    # Display chat messages
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Chat input
-    if user_input := st.chat_input("Ask me anything..."):
-        st.session_state.messages.append({
-            "role": "user", 
-            "content": user_input
-        })
+    # Show contact form if awaiting contact information
+    if st.session_state.awaiting_contact:
+        st.markdown('<div class="contact-form">', unsafe_allow_html=True)
+        st.subheader("📞 Contact Information")
+        st.write("Please provide at least one way for us to reach you:")
         
-        with st.chat_message("user"):
-            st.markdown(user_input)
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            user_phone = st.text_input("Phone Number (optional)", placeholder="+1 234 567 8900")
+        
+        with col2:
+            user_email = st.text_input("Email (optional)", placeholder="your@email.com")
+        
+        col_submit, col_skip = st.columns(2)
+        
+        with col_submit:
+            if st.button("✅ Submit Contact Info", use_container_width=True, type="primary"):
+                # Validate inputs
+                phone_valid = validate_phone(user_phone) if user_phone else False
+                email_valid = validate_email(user_email) if user_email else False
+                
+                if not user_phone and not user_email:
+                    st.error("Please provide at least one contact method")
+                elif user_phone and not phone_valid:
+                    st.error("Please enter a valid phone number")
+                elif user_email and not email_valid:
+                    st.error("Please enter a valid email address")
+                else:
+                    # Save contact info
+                    try:
+                        update_unanswered_question_contact(
+                            st.session_state.session_id,
+                            st.session_state.pending_question,
+                            user_phone if phone_valid else None,
+                            user_email if email_valid else None
+                        )
+                        
+                        # Save to session state
+                        st.session_state.saved_phone = user_phone if phone_valid else None
+                        st.session_state.saved_email = user_email if email_valid else None
+                        
+                        # Add confirmation message
+                        confirmation = "✅ Thank you! We've saved your contact information. "
+                        if user_phone and user_email:
+                            confirmation += f"The property manager will reach out to you via phone ({user_phone}) or email ({user_email}) soon."
+                        elif user_phone:
+                            confirmation += f"The property manager will call or text you at {user_phone} soon."
+                        else:
+                            confirmation += f"The property manager will email you at {user_email} soon."
+                        
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": confirmation
+                        })
+                        
+                        st.session_state.awaiting_contact = False
+                        st.session_state.pending_question = None
+                        
+                        st.success("Contact information saved!")
+                        st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"Error saving contact info: {e}")
+        
+        with col_skip:
+            if st.button("⏭️ Skip", use_container_width=True):
+                st.session_state.awaiting_contact = False
+                st.session_state.pending_question = None
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": "No problem! Feel free to ask another question or provide your contact information later."
+                })
+                st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response, input_tokens, output_tokens = ask_openai(
-                    user_question=user_input,
-                    guidebook_title=guidebook['guidebook_title'],
-                    guide_text=guidebook['guide_text'],
-                    guide_url=guidebook.get('guide_original_url', ''),
-                    chat_history=st.session_state.messages[:-1]
-                )
-                st.markdown(response)
-        
-        was_answered, reason = check_if_answered(response)
-        
-        st.session_state.messages[-1]["input_tokens"] = input_tokens
-        
-        st.session_state.messages.append({
-            "role": "assistant", 
-            "content": response,
-            "output_tokens": output_tokens,
-            "was_answered": was_answered
-        })
-        
-        st.session_state.total_input_tokens += input_tokens
-        st.session_state.total_output_tokens += output_tokens
-        
-        try:
-            save_chat_message(
-                st.session_state.session_id,
-                guidebook['guideid'],
-                "user",
-                user_input,
-                input_tokens,
-                0,
-                True
-            )
+    # Chat input (disabled if awaiting contact)
+    if not st.session_state.awaiting_contact:
+        if user_input := st.chat_input("Ask me anything..."):
+            st.session_state.messages.append({
+                "role": "user", 
+                "content": user_input
+            })
             
-            save_chat_message(
-                st.session_state.session_id,
-                guidebook['guideid'],
-                "assistant",
-                response,
-                0,
-                output_tokens,
-                was_answered
-            )
+            with st.chat_message("user"):
+                st.markdown(user_input)
+
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    response, input_tokens, output_tokens = ask_openai(
+                        user_question=user_input,
+                        guidebook_title=guidebook['guidebook_title'],
+                        guide_text=guidebook['guide_text'],
+                        guide_url=guidebook.get('guide_original_url', ''),
+                        chat_history=st.session_state.messages[:-1]
+                    )
+                    st.markdown(response)
             
-            if not was_answered:
-                log_unanswered_question(
+            was_answered, reason = check_if_answered(response)
+            
+            st.session_state.messages[-1]["input_tokens"] = input_tokens
+            
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": response,
+                "output_tokens": output_tokens,
+                "was_answered": was_answered
+            })
+            
+            st.session_state.total_input_tokens += input_tokens
+            st.session_state.total_output_tokens += output_tokens
+            
+            try:
+                save_chat_message(
                     st.session_state.session_id,
                     guidebook['guideid'],
+                    "user",
                     user_input,
-                    response,
-                    reason
+                    input_tokens,
+                    0,
+                    True
                 )
+                
+                save_chat_message(
+                    st.session_state.session_id,
+                    guidebook['guideid'],
+                    "assistant",
+                    response,
+                    0,
+                    output_tokens,
+                    was_answered
+                )
+                
+                if not was_answered:
+                    # Check if contact info already exists
+                    if st.session_state.saved_phone or st.session_state.saved_email:
+                        # Contact info already saved - just log the question with existing contact
+                        log_unanswered_question(
+                            st.session_state.session_id,
+                            guidebook['guideid'],
+                            user_input,
+                            response,
+                            reason,
+                            st.session_state.saved_phone,
+                            st.session_state.saved_email
+                        )
+                        
+                        # Add info message
+                        contact_parts = []
+                        if st.session_state.saved_phone:
+                            contact_parts.append(f"phone ({st.session_state.saved_phone})")
+                        if st.session_state.saved_email:
+                            contact_parts.append(f"email ({st.session_state.saved_email})")
+                        
+                        contact_info_msg = f"ℹ️ We already have your contact information on file ({' and '.join(contact_parts)}). The property manager will get back to you soon regarding this question."
+                        
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": contact_info_msg
+                        })
+                        
+                        # Save the info message too
+                        save_chat_message(
+                            st.session_state.session_id,
+                            guidebook['guideid'],
+                            "assistant",
+                            contact_info_msg,
+                            0,
+                            estimate_tokens(contact_info_msg),
+                            True
+                        )
+                    else:
+                        # No contact info yet - ask for it
+                        log_unanswered_question(
+                            st.session_state.session_id,
+                            guidebook['guideid'],
+                            user_input,
+                            response,
+                            reason
+                        )
+                        
+                        # Set flag to show contact form
+                        st.session_state.awaiting_contact = True
+                        st.session_state.pending_question = user_input
+                
+                update_session_stats(
+                    st.session_state.session_id,
+                    input_tokens,
+                    output_tokens
+                )
+                
+            except Exception as e:
+                print(f"Error saving chat: {e}")
             
-            update_session_stats(
-                st.session_state.session_id,
-                input_tokens,
-                output_tokens
-            )
-            
-        except Exception as e:
-            print(f"Error saving chat: {e}")
-        
-        st.rerun()
+            st.rerun()
 
 if __name__ == "__main__":
     main()
