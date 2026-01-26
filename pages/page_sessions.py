@@ -189,6 +189,26 @@ def show_chat_sessions_page():
                     st.markdown("**Reason:**")
                     st.caption(uq['reason'])
                     
+                    # Show contact information if provided
+                    if uq.get('contact_provided'):
+                        st.divider()
+                        st.markdown("**📞 Contact Information:**")
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if uq.get('user_phone'):
+                                st.success(f"📱 Phone: {uq['user_phone']}")
+                            else:
+                                st.caption("No phone provided")
+                        
+                        with col2:
+                            if uq.get('user_email'):
+                                st.success(f"📧 Email: {uq['user_email']}")
+                            else:
+                                st.caption("No email provided")
+                    else:
+                        st.caption("⚠️ Contact information not provided")
+                    
                     st.caption(f"**Session:** {uq['session_id']}")
                     st.caption(f"**Time:** {uq['created_at']}")
 
