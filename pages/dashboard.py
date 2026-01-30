@@ -9,7 +9,7 @@ def show_dashboard():
         st.session_state.page = "chat_sessions"
         st.rerun()
 
-    col1, col2 = st.columns(2)
+    col1, col2,col3 = st.columns(3)
 
     with col1:
         if st.button("🏠 Property Registration"):
@@ -19,6 +19,11 @@ def show_dashboard():
     with col2:
         if st.button("📚 Guidebook Registration"):
             st.session_state.page = "guidebook"
+            st.rerun()
+
+    with col3:
+        if st.button("👥 Property Managers"):
+            st.session_state.page = "property_manager"
             st.rerun()
 
     st.divider()
