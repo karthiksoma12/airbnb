@@ -3,7 +3,7 @@ from auth import authenticate_user
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Property Management System,
+    page_title="Property Management System",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -221,3 +221,4 @@ else:
     elif st.session_state.page == "chat_sessions":
         from pages.page_sessions import show_chat_sessions_page
         show_chat_sessions_page()
+
