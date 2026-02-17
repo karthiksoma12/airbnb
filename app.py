@@ -18,15 +18,21 @@ st.markdown("""
     .stDeployButton { display: none !important; }
     .block-container { padding-top: 2rem !important; }
 
-    /* ---- Hide Manage App Button (exact class from inspect) ---- */
+    /* ---- Hide Manage App Button & Avatar ---- */
     button._terminalButton_rix23_138 { display: none !important; }
     div._stateContainer_nim44_26 { display: none !important; }
     [data-testid="manage-app-button"] { display: none !important; }
-    button[data-testid="manage-app-button"] { display: none !important; }
-    
-    /* ---- Hide by class pattern (future-proof) ---- */
     [class*="_terminalButton_"] { display: none !important; }
     [class*="_stateContainer_"] { display: none !important; }
+    
+    /* ---- Hide App Creator Avatar ---- */
+    [data-testid="appCreatorAvatar"] { display: none !important; }
+    img[data-testid="appCreatorAvatar"] { display: none !important; }
+    [class*="_profileImage_"] { display: none !important; }
+    
+    /* ---- Hide entire bottom right section ---- */
+    [class*="_ViewerBadge_"] { display: none !important; }
+    div[class*="_viewerBadge_"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
