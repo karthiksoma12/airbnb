@@ -423,6 +423,16 @@ def main():
         page_icon="🤖",
         layout="wide"
     )
+    st.markdown("""
+    <style>
+        header[data-testid="stHeader"] { display: none !important; }
+        footer { display: none !important; }
+        div[data-testid="stToolbar"] { display: none !important; }
+        div[class*="viewerBadge"] { display: none !important; }
+        .stDeployButton { display: none !important; }
+        .block-container { padding-top: 2rem !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
     # Custom CSS
     st.markdown("""
@@ -554,7 +564,7 @@ def main():
     if len(st.session_state.messages) == 0:
         st.markdown("### 💡 Quick Questions")
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2 = st.columns(2)
         
         with col1:
             if st.button("📶 WiFi Password", key="btn_wifi", use_container_width=True):
@@ -564,39 +574,6 @@ def main():
         with col2:
             if st.button("📺 TV Remote", key="btn_tv", use_container_width=True):
                 process_user_message("How do I use the TV remote?", guidebook)
-                st.rerun()
-        
-        with col3:
-            if st.button("🗑️ Trash Location", key="btn_trash", use_container_width=True):
-                process_user_message("Where is the trash can located?", guidebook)
-                st.rerun()
-        
-        with col4:
-            if st.button("🅿️ Parking Info", key="btn_parking", use_container_width=True):
-                process_user_message("Where can I park?", guidebook)
-                st.rerun()
-        
-        # Second row of buttons
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            if st.button("🔑 Check-in Time", key="btn_checkin", use_container_width=True):
-                process_user_message("What is the check-in time?", guidebook)
-                st.rerun()
-        
-        with col2:
-            if st.button("🚪 Check-out Time", key="btn_checkout", use_container_width=True):
-                process_user_message("What is the check-out time?", guidebook)
-                st.rerun()
-        
-        with col3:
-            if st.button("🏊 Pool Hours", key="btn_pool", use_container_width=True):
-                process_user_message("What are the pool hours?", guidebook)
-                st.rerun()
-        
-        with col4:
-            if st.button("🆘 Emergency Contact", key="btn_emergency", use_container_width=True):
-                process_user_message("What is the emergency contact number?", guidebook)
                 st.rerun()
         
         st.divider()
@@ -687,3 +664,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
