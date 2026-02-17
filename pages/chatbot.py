@@ -424,25 +424,36 @@ def main():
         layout="wide"
     )
     st.markdown("""
-    <style>
-        header[data-testid="stHeader"] { display: none !important; }
-        footer { display: none !important; }
-        div[data-testid="stToolbar"] { display: none !important; }
-        div[class*="viewerBadge"] { display: none !important; }
-        .stDeployButton { display: none !important; }
-        .block-container { padding-top: 2rem !important; }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+    /* ---- Hide Streamlit UI Elements ---- */
+    header[data-testid="stHeader"] { display: none !important; }
+    footer { display: none !important; }
+    div[data-testid="stToolbar"] { display: none !important; }
+    div[class*="viewerBadge"] { display: none !important; }
+    .stDeployButton { display: none !important; }
+    .block-container { padding-top: 2rem !important; }
+
+    /* ---- Hide Bottom Right Badges ---- */
+    #MainMenu { display: none !important; }
+    div[data-testid="stStatusWidget"] { display: none !important; }
+    div[data-testid="collapsedControl"] { display: none !important; }
+    button[kind="headerNoPadding"] { display: none !important; }
+    .viewerBadge_container__r5tak { display: none !important; }
+    .viewerBadge_link__qRIco { display: none !important; }
+    [data-testid="manage-app-button"] { display: none !important; }
+    iframe[title="streamlit_share_badge"] { display: none !important; }
+</style>
+""", unsafe_allow_html=True)
 
     # Custom CSS
     st.markdown("""
         <style>
         .guidebook-header {
             background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            padding: 1.5rem;
-            border-radius: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.4rem;
             color: white;
-            margin-bottom: 1rem;
+            margin-bottom: 0.8rem;
         }
         .contact-form {
             background: #f8f9fa;
