@@ -8,6 +8,16 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+st.markdown("""
+    <style>
+        header[data-testid="stHeader"] { display: none !important; }
+        footer { display: none !important; }
+        div[data-testid="stToolbar"] { display: none !important; }
+        div[class*="viewerBadge"] { display: none !important; }
+        .stDeployButton { display: none !important; }
+        .block-container { padding-top: 2rem !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # ---------------- SESSION INIT ----------------
 if "logged_in" not in st.session_state:
@@ -221,5 +231,6 @@ else:
     elif st.session_state.page == "chat_sessions":
         from pages.page_sessions import show_chat_sessions_page
         show_chat_sessions_page()
+
 
 
