@@ -423,7 +423,7 @@ def main():
         page_icon="🤖",
         layout="wide"
     )
-    st.markdown("""
+   st.markdown("""
 <style>
     /* ---- Hide Streamlit UI Elements ---- */
     header[data-testid="stHeader"] { display: none !important; }
@@ -433,18 +433,17 @@ def main():
     .stDeployButton { display: none !important; }
     .block-container { padding-top: 2rem !important; }
 
-    /* ---- Hide Bottom Right Badges ---- */
-    #MainMenu { display: none !important; }
-    div[data-testid="stStatusWidget"] { display: none !important; }
-    div[data-testid="collapsedControl"] { display: none !important; }
-    button[kind="headerNoPadding"] { display: none !important; }
-    .viewerBadge_container__r5tak { display: none !important; }
-    .viewerBadge_link__qRIco { display: none !important; }
+    /* ---- Hide Manage App Button (exact class from inspect) ---- */
+    button._terminalButton_rix23_138 { display: none !important; }
+    div._stateContainer_nim44_26 { display: none !important; }
     [data-testid="manage-app-button"] { display: none !important; }
-    iframe[title="streamlit_share_badge"] { display: none !important; }
+    button[data-testid="manage-app-button"] { display: none !important; }
+    
+    /* ---- Hide by class pattern (future-proof) ---- */
+    [class*="_terminalButton_"] { display: none !important; }
+    [class*="_stateContainer_"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
-
     # Custom CSS
     st.markdown("""
         <style>
