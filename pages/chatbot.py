@@ -423,7 +423,7 @@ def main():
         page_icon="🤖",
         layout="wide"
     )
-   st.markdown("""
+    st.markdown("""
 <style>
     /* ---- Hide Streamlit UI Elements ---- */
     header[data-testid="stHeader"] { display: none !important; }
