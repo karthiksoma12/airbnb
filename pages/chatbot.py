@@ -244,13 +244,29 @@ Original Guide URL (for reference):
 
 IMPORTANT INSTRUCTIONS:
 
-1. If the question IS RELATED TO THE PROPERTY and the answer is NOT in the guidebook:
+1. LOCATION / DIRECTIONS QUESTIONS :
+If the user asks about location, address, map, directions, or how to get there (any variation in wording):
+
+- Search the guidebook for:
+  • Property address
+  • Google Maps link
+  • Any map/location URL
+
+- If found:
+  Respond in this format:
+  "The property is located at [address from guidebook]. You can view it here: [map URL from guidebook]"
+
+- If only one (address or URL) is available, provide only what exists.
+
+- If location info exists in the guidebook, NEVER say it's unavailable.
+
+2. If the question IS RELATED TO THE PROPERTY and the answer is NOT in the guidebook:
    - Respond EXACTLY: "I am going to pass this question to the property manager or owner. Do you mind sharing your phone number or email so one of them can call or text you back with an answer?"
 
-2. If the question IS NOT RELATED TO THE PROPERTY (e.g., general knowledge, unrelated topics, personal questions):
+3. If the question IS NOT RELATED TO THE PROPERTY (e.g., general knowledge, unrelated topics, personal questions):
    - Respond: "I'm sorry, but that question is not available in the guidebook or not relevant to the property. I can only help with questions about this specific property and its amenities, policies, and guidelines."
 
-3. If you CAN answer the question from the guidebook:
+4. If you CAN answer the question from the guidebook:
    - Answer directly, accurately, and concisely based on the guidebook content
 
 Guidelines:
@@ -423,6 +439,8 @@ def main():
         page_icon="🤖",
         layout="wide"
     )
+
+    # Custom CSS
     st.markdown("""
 <style>
     /* ---- Hide Streamlit UI Elements ---- */
@@ -433,44 +451,96 @@ def main():
     .stDeployButton { display: none !important; }
     .block-container { padding-top: 2rem !important; }
 
-    /* ---- Hide Manage App Button & Avatar ---- */
-    button._terminalButton_rix23_138 { display: none !important; }
-    div._stateContainer_nim44_26 { display: none !important; }
+    /* ---- Hide Bottom Right Badges ---- */
+    #MainMenu { display: none !important; }
+    div[data-testid="stStatusWidget"] { display: none !important; }
+    div[data-testid="collapsedControl"] { display: none !important; }
+    button[kind="headerNoPadding"] { display: none !important; }
+    .viewerBadge_container__r5tak { display: none !important; }
+    .viewerBadge_link__qRIco { display: none !important; }
     [data-testid="manage-app-button"] { display: none !important; }
-    [class*="_terminalButton_"] { display: none !important; }
-    [class*="_stateContainer_"] { display: none !important; }
-    
-    /* ---- Hide App Creator Avatar ---- */
-    [data-testid="appCreatorAvatar"] { display: none !important; }
-    img[data-testid="appCreatorAvatar"] { display: none !important; }
-    [class*="_profileImage_"] { display: none !important; }
-    
-    /* ---- Hide entire bottom right section ---- */
-    [class*="_ViewerBadge_"] { display: none !important; }
-    div[class*="_viewerBadge_"] { display: none !important; }
+    iframe[title="streamlit_share_badge"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
-    # Custom CSS
+    
     st.markdown("""
-        <style>
+    <style>
+    .guidebook-header {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        padding: 1rem 1.25rem;
+        border-radius: 0.75rem;
+        color: white;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .guidebook-header h1 {
+        font-size: 1.3rem !important;
+        margin: 0 0 0.25rem 0 !important;
+        padding: 0 !important;
+        font-weight: 600;
+        line-height: 1.3;
+    }
+    .guidebook-header p {
+        font-size: 0.875rem !important;
+        margin: 0 !important;
+        opacity: 0.9;
+        line-height: 1.4;
+    }
+    
+    /* Quick Questions Section */
+    h3 {
+        font-size: 1.2rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    /* Quick Action Buttons - Better spacing */
+    .stButton button {
+        padding: 0.75rem 1rem !important;
+        font-size: 0.95rem !important;
+        border-radius: 0.5rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+    
+    .contact-form {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin: 1rem 0;
+    }
+    
+    /* Reduce excessive spacing */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    /* Chat input at bottom */
+    .stChatFloatingInputContainer {
+        padding-bottom: 1rem !important;
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
         .guidebook-header {
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            padding: 0.5rem 1rem;
-            border-radius: 0.4rem;
-            color: white;
-            margin-bottom: 0.8rem;
+            padding: 0.875rem 1rem;
+            margin-bottom: 1.25rem;
         }
-        .contact-form {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin: 1rem 0;
+        .guidebook-header h1 {
+            font-size: 1.15rem !important;
         }
-        .quick-action-btn {
-            margin: 0.25rem;
+        .guidebook-header p {
+            font-size: 0.8rem !important;
         }
-        </style>
-    """, unsafe_allow_html=True)
+        h3 {
+            font-size: 1.1rem !important;
+        }
+        .stButton button {
+            padding: 0.65rem 0.85rem !important;
+            font-size: 0.9rem !important;
+        }
+    }
+    </style>
+""", unsafe_allow_html=True)
 
     # Get guidebook parameter from URL
     params = st.query_params
@@ -674,10 +744,9 @@ def main():
 
     # Chat input
     if not st.session_state.awaiting_contact:
-        if user_input := st.chat_input("Ask me anything..."):
+        if user_input := st.chat_input("Ask me anything related to this property..."):
             process_user_message(user_input, guidebook)
             st.rerun()
 
 if __name__ == "__main__":
     main()
-
